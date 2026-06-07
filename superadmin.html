@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>True Site Sync — Super Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="js/vendor/supabase.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',-apple-system,sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh}
+    .mono{font-family:'JetBrains Mono',monospace}
+
+    /* Login */
+    #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#f1f5f9,#e2e8f0)}
+    .login-box{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:36px;width:380px;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+    .login-box h1{font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px}
+    .login-box p{font-size:12px;color:#94a3b8;margin-bottom:20px}
+    .login-box input{width:100%;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;color:#1e293b;font-size:13px;outline:none;margin-bottom:10px;font-family:inherit}
+    .login-box input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+    .login-box .btn{width:100%;padding:10px;background:#dc2626;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px;font-family:inherit}
+    .login-box .btn:hover{background:#b91c1c}
+    .err{color:#dc2626;font-size:12px;margin-bottom:10px;display:none;background:#fef2f2;border:1px solid #fecaca;padding:8px 12px;border-radius:8px}
+
+    /* Dashboard */
+    #dashboard{display:none}
+    .topbar{background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+    .topbar h1{font-size:15px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px}
+    .topbar .badge{font-size:9px;background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:.5px}
+    .top-btn{padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;color:#64748b;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+    .top-btn:hover{background:#e2e8f0;color:#1e293b}
+    .top-btn-red{border-color:#fecaca;color:#dc2626;background:#fef2f2}
+    .top-btn-red:hover{background:#fee2e2}
+    .container{max-width:1100px;margin:0 auto;padding:24px}
+
+    /* KPI */
+    .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+    .kpi{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;border-left:3px solid #3b82f6}
+    .kpi-val{font-size:24px;font-weight:800;color:#0f172a}
+    .kpi-label{font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600;margin-top:2px;letter-spacing:.3px}
+
+    /* Tabs */
+    .tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid #e2e8f0}
+    .tab{padding:10px 20px;font-size:13px;font-weight:600;border:none;background:none;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit;transition:.15s}
+    .tab:hover{color:#475569}
+    .tab.active{color:#1e293b;border-bottom-color:#2563eb}
+
+    /* Table */
+    .tbl-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    .tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .tbl th{text-align:left;padding:12px 16px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e2e8f0;background:#f8fafc;white-space:nowrap}
+    .tbl td{padding:12px 16px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+    .tbl tbody tr:hover{background:#f8fafc}
+    .tbl .center{text-align:center}
+    .tbl .right{text-align:right}
+    .tbl .nowrap{white-space:nowrap}
+
+    .chip{display:inline-block;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+    .chip-green{color:#059669;background:#ecfdf5;border:1px solid #a7f3d0}
+    .chip-amber{color:#d97706;background:#fffbeb;border:1px solid #fde68a}
+    .chip-red{color:#dc2626;background:#fef2f2;border:1px solid #fecaca}
+    .chip-blue{color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe}
+    .chip-purple{color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe}
+    .chip-gray{color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0}
+
+    .user-name{font-weight:700;color:#0f172a;font-size:13px}
+    .user-email{font-size:11px;color:#94a3b8;margin-top:1px}
+    .user-org{font-size:10px;color:#6366f1;font-weight:600;margin-top:2px}
+    .empty{text-align:center;padding:60px 20px;color:#94a3b8;font-size:14px}
+    .empty-icon{font-size:36px;margin-bottom:10px;opacity:.5}
+
+    .abtn{padding:4px 10px;font-size:10px;font-weight:600;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:5px;cursor:pointer;font-family:inherit;margin:1px;transition:.15s;white-space:nowrap}
+    .abtn:hover{background:#e2e8f0;color:#1e293b}
+    .abtn-red{border-color:#fecaca;color:#dc2626;background:#fef2f2}
+    .abtn-red:hover{background:#fee2e2}
+    .abtn-blue{border-color:#bfdbfe;color:#2563eb;background:#eff6ff}
+    .abtn-blue:hover{background:#dbeafe}
+    .abtn-green{border-color:#a7f3d0;color:#059669;background:#ecfdf5}
+    .abtn-green:hover{background:#d1fae5}
+
+    @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:600px){.kpi-grid{grid-template-columns:1fr}.container{padding:12px}.tbl{font-size:11px}.tbl th,.tbl td{padding:8px 10px}}
+  </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="width:48px;height:48px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px;">
+        <span style="color:#fff;font-size:20px;font-weight:900;">SA</span>
+      </div>
+      <h1>Super Admin</h1>
+      <p>True Site Sync — Internal Dashboard</p>
+    </div>
+    <div id="loginErr" class="err"></div>
+    <input type="email" id="adminEmail" placeholder="Admin email" autofocus>
+    <input type="password" id="adminPass" placeholder="Password">
+    <button class="btn" onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <div class="topbar">
+    <h1>True Site Sync <span class="badge">SUPER ADMIN</span></h1>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="adminName" style="font-size:11px;color:#94a3b8;font-weight:500;"></span>
+      <button class="top-btn" onclick="loadData()">Refresh</button>
+      <button class="top-btn top-btn-red" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('users',this)">Users</button>
+      <button class="tab" onclick="switchTab('leads',this)">Download Leads</button>
+      <button class="tab" onclick="switchTab('orgs',this)">Organizations</button>
+    </div>
+    <div id="tabContent"></div>
+  </div>
+</div>
+
+<script>
+const SB_URL = 'https://cuxblomxefwgdcijmpjk.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1eGJsb214ZWZ3Z2RjaWptcGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MzE2ODgsImV4cCI6MjA5NTUwNzY4OH0.BPSv4rkvjIn0mYdwkfdpRc6NZXB9aOLycongwShisRU';
+const ADMINS = ['raghupadhiyar9@gmail.com', 'pjchauhan0704@gmail.com'];
+let sb = null, _data = null;
+
+try { sb = window.supabase.createClient(SB_URL, SB_KEY); } catch(e) {
+  const el = document.getElementById('loginErr');
+  el.textContent = 'Failed to load. Refresh the page.'; el.style.display = 'block';
+}
+
+// Auto-login from existing session
+if (sb) sb.auth.getSession().then(({ data: { session } }) => {
+  if (session?.user && ADMINS.includes(session.user.email)) showDashboard(session.user.email);
+}).catch(() => {});
+
+function showDashboard(email) {
+  document.getElementById('adminName').textContent = email;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  loadData();
+}
+
+async function doLogin() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const pass = document.getElementById('adminPass').value;
+  const err = document.getElementById('loginErr');
+  err.style.display = 'none';
+  if (!sb) { err.textContent = 'System not ready.'; err.style.display = 'block'; return; }
+  if (!ADMINS.includes(email)) { err.textContent = 'Access denied.'; err.style.display = 'block'; return; }
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) { err.textContent = error.message; err.style.display = 'block'; return; }
+    showDashboard(email);
+  } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
+}
+
+async function doLogout() {
+  if (sb) await sb.auth.signOut();
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+}
+
+async function loadData() {
+  if (!sb) return;
+  const kpiEl = document.getElementById('kpiGrid');
+  const tabEl = document.getElementById('tabContent');
+  kpiEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#94a3b8;">Loading...</div>';
+  tabEl.innerHTML = '';
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { tabEl.innerHTML = '<div class="empty">Session expired. Please login again.</div>'; return; }
+    const res = await fetch(SB_URL + '/functions/v1/admin-data', {
+      headers: { 'Authorization': 'Bearer ' + session.access_token }
+    });
+    if (!res.ok) throw new Error('Error ' + res.status);
+    _data = await res.json();
+    if (_data.error) throw new Error(_data.error);
+    renderKPIs();
+    renderUsers();
+  } catch(e) {
+    kpiEl.innerHTML = '';
+    tabEl.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>' + e.message + '</div>';
+  }
+}
+
+function renderKPIs() {
+  if (!_data) return;
+  const s = _data.stats;
+  document.getElementById('kpiGrid').innerHTML = [
+    kpi(s.totalUsers, 'Total Users', '#2563eb'),
+    kpi(s.activeToday, 'Active Today', '#059669'),
+    kpi(s.activeWeek, 'Active 7 Days', '#0891b2'),
+    kpi(s.withProjects, 'With Projects', '#7c3aed'),
+    kpi(s.totalOrgs, 'Organizations', '#d97706'),
+    kpi(s.paidOrgs, 'Paid Plans', '#059669'),
+    kpi('₹' + (s.totalRevenue||0).toLocaleString('en-IN'), 'Revenue', '#059669'),
+    kpi(s.totalLeads, 'Downloads', '#ea580c'),
+  ].join('');
+}
+
+function kpi(v,l,c) {
+  return '<div class="kpi" style="border-left-color:'+c+'"><div class="kpi-val mono">'+v+'</div><div class="kpi-label">'+l+'</div></div>';
+}
+
+function switchTab(t, btn) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (t==='users') renderUsers(); else if (t==='leads') renderLeads(); else renderOrgs();
+}
+
+function renderUsers() {
+  const c = document.getElementById('tabContent');
+  if (!_data?.users?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">👤</div>No users yet</div>'; return; }
+  const now = Date.now();
+  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>User</th><th class="center">Projects</th><th class="center">Plan</th><th class="center">Status</th><th class="center nowrap">Signed Up</th><th class="center nowrap">Last Active</th><th class="center">Actions</th></tr></thead><tbody>';
+
+  _data.users.forEach(u => {
+    const su = new Date(u.created_at);
+    const la = u.last_sign_in ? new Date(u.last_sign_in) : null;
+    const days = la ? Math.floor((now - la) / 86400000) : 999;
+    const ac = days===0 ? '#059669' : days<=7 ? '#d97706' : '#dc2626';
+    const al = days===0 ? 'Today' : days===1 ? 'Yesterday' : la ? days+'d ago' : 'Never';
+    const te = u.trial_ends ? new Date(u.trial_ends) : new Date(su.getTime()+7*86400000);
+    const td = Math.max(0, Math.ceil((te - now) / 86400000));
+    const free = !u.org_plan || u.org_plan==='free';
+    const exp = free && td<=0;
+    let st = !free ? '<span class="chip chip-green">Paid</span>' : exp ? '<span class="chip chip-red">Expired</span>' : '<span class="chip chip-amber">Trial '+td+'d</span>';
+    const pc = {free:'chip-gray',starter:'chip-blue',business:'chip-purple',enterprise:'chip-green'};
+
+    h += '<tr><td><div class="user-name">'+(u.name||u.email.split('@')[0])+'</div><div class="user-email">'+u.email+'</div>'+(u.org_name?'<div class="user-org">'+u.org_name+'</div>':'')+'</td>';
+    h += '<td class="center" style="font-weight:700;">'+u.projects+'</td>';
+    h += '<td class="center"><span class="chip '+(pc[u.org_plan]||'chip-gray')+'">'+(u.org_plan||'free')+'</span></td>';
+    h += '<td class="center">'+st+'</td>';
+    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+su.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'})+'</td>';
+    h += '<td class="center nowrap"><span style="font-size:11px;font-weight:600;color:'+ac+';">'+al+'</span></td>';
+    const oid = u.org_id || '';
+    let acts = '';
+    if (oid) {
+      acts += '<button class="abtn" onclick="editSeats(\''+oid+'\','+u.max_seats+')">Seats</button>';
+      acts += '<button class="abtn" onclick="changePlan(\''+oid+'\',\''+(u.org_plan||'free')+'\')">Plan</button>';
+      acts += '<button class="abtn" onclick="extendTrial(\''+oid+'\')">+Trial</button>';
+      acts += '<button class="abtn abtn-red" onclick="toggleActive(\''+oid+'\')">On/Off</button>';
+    } else {
+      acts += '<button class="abtn abtn-blue" onclick="createOrgForUser(\''+u.id+'\')">+ Org</button>';
+    }
+    acts += '<button class="abtn abtn-red" onclick="deleteUser(\''+u.id+'\',\''+u.email+'\')">Del</button>';
+    h += '<td class="center nowrap">'+acts+'</td></tr>';
+  });
+  c.innerHTML = h + '</tbody></table></div>';
+}
+
+function renderLeads() {
+  const c = document.getElementById('tabContent');
+  const leads = _data?.leads || [];
+  if (!leads.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">📥</div>No download leads yet</div>'; return; }
+  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Email</th><th class="center">Platform</th><th class="center nowrap">Date</th></tr></thead><tbody>';
+
+  leads.forEach((l,i) => {
+    const pc = l.platform==='windows' ? 'chip-blue' : 'chip-green';
+    h += '<tr><td style="color:#94a3b8;font-weight:600;font-size:11px;">'+(i+1)+'</td>';
+    h += '<td style="font-weight:600;">'+(l.name||'—')+'</td>';
+    h += '<td class="mono" style="font-size:12px;">'+(l.phone||'—')+'</td>';
+    h += '<td style="font-size:12px;color:#64748b;">'+(l.email||'—')+'</td>';
+    h += '<td class="center"><span class="chip '+pc+'">'+(l.platform||'—')+'</span></td>';
+    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+(l.downloaded_at ? new Date(l.downloaded_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—')+'</td></tr>';
+  });
+  c.innerHTML = h + '</tbody></table></div>';
+}
+
+function renderOrgs() {
+  const c = document.getElementById('tabContent');
+  const orgs = _data?.orgs || [];
+  if (!orgs.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏢</div>No organizations created yet</div>'; return; }
+  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Company</th><th class="center">Plan</th><th class="center">Seats</th><th class="center">Status</th><th class="center nowrap">Trial Ends</th><th class="center nowrap">Created</th><th class="center">Actions</th></tr></thead><tbody>';
+
+  orgs.forEach(o => {
+    const te = o.trial_ends_at ? new Date(o.trial_ends_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : '—';
+    h += '<tr><td><div style="font-weight:700;">'+o.name+'</div><div style="font-size:10px;color:#94a3b8;">'+(o.email||o.slug||'')+'</div></td>';
+    h += '<td class="center"><span class="chip chip-blue">'+o.plan+'</span></td>';
+    h += '<td class="center" style="font-weight:700;">'+o.max_seats+'</td>';
+    h += '<td class="center"><span class="chip '+(o.is_active?'chip-green':'chip-red')+'">'+(o.is_active?'Active':'Disabled')+'</span></td>';
+    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+te+'</td>';
+    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</td>';
+    h += '<td class="center nowrap"><button class="abtn" onclick="editSeats(\''+o.id+'\','+o.max_seats+')">Seats</button><button class="abtn" onclick="changePlan(\''+o.id+'\',\''+o.plan+'\')">Plan</button><button class="abtn" onclick="extendTrial(\''+o.id+'\')">+Trial</button><button class="abtn '+(o.is_active?'abtn-red':'abtn-green')+'" onclick="toggleActive(\''+o.id+'\')">'+(o.is_active?'Disable':'Enable')+'</button></td></tr>';
+  });
+  c.innerHTML = h + '</tbody></table></div>';
+}
+
+// ═══ Admin Actions ═══
+async function adminAction(action, params) {
+  if (!sb) return;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { alert('Session expired'); return; }
+    const res = await fetch(SB_URL + '/functions/v1/admin-action', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...params })
+    });
+    const result = await res.json();
+    if (result.error) { alert('Error: ' + result.error); return; }
+    await loadData();
+  } catch(e) { alert('Failed: ' + e.message); }
+}
+
+function editSeats(orgId, current) {
+  const v = prompt('Change seat limit (current: ' + current + '):', current);
+  if (v && !isNaN(v) && parseInt(v) > 0) adminAction('update_seats', { org_id: orgId, value: v });
+}
+
+function changePlan(orgId, current) {
+  const v = prompt('Change plan (current: ' + current + ')\n\nOptions: free, starter, business, enterprise', current);
+  if (v && ['free','starter','business','enterprise'].includes(v)) adminAction('update_plan', { org_id: orgId, value: v });
+}
+
+function extendTrial(orgId) {
+  const v = prompt('Extend trial by how many days?', '7');
+  if (v && !isNaN(v) && parseInt(v) > 0) adminAction('extend_trial', { org_id: orgId, value: v });
+}
+
+function toggleActive(orgId) {
+  if (confirm('Toggle active status for this organization?')) adminAction('toggle_active', { org_id: orgId });
+}
+
+function createOrgForUser(userId) {
+  if (confirm('Create a new organization for this user?')) adminAction('create_org', { user_id: userId });
+}
+
+function deleteUser(userId, email) {
+  if (confirm('DELETE user ' + email + '?\n\nThis will remove ALL their data permanently. This cannot be undone.')) {
+    if (confirm('Are you REALLY sure? Type the email to confirm.\n\n' + email)) {
+      adminAction('delete_user', { user_id: userId });
+    }
+  }
+}
+
+document.getElementById('adminPass').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+</script>
+</body>
+</html>
